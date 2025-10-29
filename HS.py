@@ -1,6 +1,5 @@
-# HS Studio Card V2 - Motor de Padrões Profissional
+# HS Studio Card V2 – Inteligência Real
 import streamlit as st
-import numpy as np
 
 st.set_page_config(page_title="HS Studio Card", page_icon="🎴", layout="centered")
 
@@ -9,7 +8,7 @@ st.set_page_config(page_title="HS Studio Card", page_icon="🎴", layout="center
 st.markdown("""
 <style>
 body { background-color:#0b0c10; color:#f8f8f2; font-family:'Poppins', sans-serif;}
-h1, h2, h3 { text-align:center;}
+h1,h2,h3 { text-align:center; }
 .stButton>button {
     width:100px; height:100px; font-size:35px; border-radius:20px;
     border:none; color:white; margin:10px; transition:0.3s;
@@ -57,56 +56,50 @@ st.markdown(f"<h3 style='color:#aaa;'>Histórico ({len(st.session_state.historic
 st.markdown(f"<h2 style='color:white;'>{hist_exibicao}</h2>", unsafe_allow_html=True)
 
 # ==============================
-# 🔹 Funções auxiliares de análise
+# 🔹 Funções auxiliares de inteligência
 def espelhar(seq):
     return "".join(["B" if x=="R" else "R" if x=="B" else "D" for x in seq])
 
-def calcular_similaridade(sub, target):
-    # compara exata, espelhada e deslocada
+def similaridade(sub, target):
     max_sim = 0
     tipo = "Indefinido"
     for i in range(len(target)-len(sub)+1):
-        segmento = target[i:i+len(sub)]
-        sim = sum([1 for a,b in zip(sub, segmento) if a==b])/len(sub)*100
+        seg = target[i:i+len(sub)]
+        sim = sum([1 for a,b in zip(sub, seg) if a==b])/len(sub)*100
         if sim>max_sim:
             max_sim = sim
             tipo = "Direta"
-        # espelhamento
-        sim_esp = sum([1 for a,b in zip(espelhar(sub), segmento) if a==b])/len(sub)*100
+        sim_esp = sum([1 for a,b in zip(espelhar(sub), seg) if a==b])/len(sub)*100
         if sim_esp>max_sim:
             max_sim = sim_esp
             tipo = "Espelhada"
     return max_sim, tipo
 
 # ==============================
-# 🔹 Motor profissional de análise
-def analisar_padroes(historico):
+# 🔹 Motor inteligente de análise
+def motor_inteligente(historico):
     if len(historico)<5:
-        return None, 0
+        return None, 0, "-", "-", 1
     seq = "".join(historico)
-    similar_total = {}
-    tipos_total = {}
-    # gera todas sub-sequências 2-9
+    similares = {}
+    tipos = {}
     for tam in range(2, min(10,len(seq))):
         for start in range(len(seq)-tam+1):
             sub = seq[start:start+tam]
-            sim, tipo = calcular_similaridade(sub, seq)
-            similar_total[sub] = similar_total.get(sub,0)+sim
-            tipos_total[sub] = tipo
-    # padrão dominante
-    padrao_dom = max(similar_total, key=lambda k: similar_total[k])
-    tipo_dom = tipos_total[padrao_dom]
-    nivel_manip = int(min(9, max(1, 1 + (100 - similar_total[padrao_dom])//11)))
-    # escolha próxima cor baseada no último padrão
+            sim, tipo = similaridade(sub, seq)
+            similares[sub] = similares.get(sub,0)+sim
+            tipos[sub] = tipo
+    padrao_dom = max(similares, key=lambda k: similares[k])
+    tipo_dom = tipos[padrao_dom]
+    nivel_manip = int(min(9, max(1, 1 + (100 - similares[padrao_dom])//11)))
     prox = padrao_dom[-1]
-    # confiança ponderada
-    confianca = round(similar_total[padrao_dom]/len(seq),2)
+    confianca = round(similares[padrao_dom]/len(seq),2)
     return prox, confianca, padrao_dom, tipo_dom, nivel_manip
 
 # ==============================
-# 🔹 Exibir resultado da análise
-if st.session_state.historico:
-    prox, confianca, padrao, tipo, nivel = analisar_padroes(st.session_state.historico)
+# 🔹 Exibir previsão
+prox, confianca, padrao, tipo, nivel = motor_inteligente(st.session_state.historico)
+if prox:
     cor_emoji = "🔴" if prox=="R" else "🔵" if prox=="B" else "🟡"
     cor_nome = "Vermelho" if prox=="R" else "Azul" if prox=="B" else "Empate"
     st.markdown(f"""
@@ -114,5 +107,8 @@ if st.session_state.historico:
             <h2 style='color:gold;'>🎯 Próxima cor provável:</h2>
             <h1 style='font-size:70px;'>{cor_emoji} {cor_nome}</h1>
             <h3 style='color:#ccc;'>Confiança: {confianca}%</h3>
+            <h3 style='color:#ccc;'>Nível de manipulação: {nivel}</h3>
         </div>
     """, unsafe_allow_html=True)
+else:
+    st.markdown("<p style='color:#888;'>Insira pelo menos 5 resultados para iniciar a leitura comportamental.</p>", unsafe_allow_html=True)
