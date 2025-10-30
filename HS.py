@@ -1,4 +1,4 @@
-# HS Studio Card V2 – Inteligência Real
+# HS Studio Card V2 – Corrigido
 import streamlit as st
 
 st.set_page_config(page_title="HS Studio Card", page_icon="🎴", layout="centered")
@@ -50,8 +50,9 @@ with col5:
 st.session_state.historico = st.session_state.historico[-27:]
 
 # ==============================
-# 🔹 Exibir histórico
-hist_exibicao = " ".join(["🔴" if x=="R" else "🔵" if x=="B" else "🟡" for x in st.session_state.historico])
+# 🔹 Exibir histórico da esquerda (mais recente) para direita (mais antigo)
+hist_exibicao = " ".join(["🔴" if x=="R" else "🔵" if x=="B" else "🟡" 
+                          for x in reversed(st.session_state.historico)])
 st.markdown(f"<h3 style='color:#aaa;'>Histórico ({len(st.session_state.historico)}/27):</h3>", unsafe_allow_html=True)
 st.markdown(f"<h2 style='color:white;'>{hist_exibicao}</h2>", unsafe_allow_html=True)
 
@@ -80,7 +81,8 @@ def similaridade(sub, target):
 def motor_inteligente(historico):
     if len(historico)<5:
         return None, 0, "-", "-", 1
-    seq = "".join(historico)
+    # ANÁLISE DA DIREITA PARA A ESQUERDA (mais antigo -> mais recente)
+    seq = "".join(reversed(historico))
     similares = {}
     tipos = {}
     for tam in range(2, min(10,len(seq))):
