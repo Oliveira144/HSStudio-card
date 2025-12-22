@@ -1,9 +1,15 @@
 import streamlit as st
 
+# =====================
+# CONFIGURAÇÃO
+# =====================
 st.set_page_config(
     page_title="Football Studio - Padrões Reais",
     layout="wide"
 )
+
+# Evita quebra visual por erro de front
+st.set_option("client.showErrorDetails", False)
 
 # =====================
 # ESTADO
@@ -15,7 +21,7 @@ if "history" not in st.session_state:
 # FUNÇÕES BÁSICAS
 # =====================
 def add_result(result):
-    # mais recente sempre à esquerda
+    # Mais recente sempre à esquerda
     st.session_state.history.insert(0, result)
 
 def reset():
@@ -25,7 +31,7 @@ def chunk_history(hist, size=9):
     return [hist[i:i + size] for i in range(0, len(hist), size)]
 
 # =====================
-# MOTOR DE PADRÕES
+# MOTOR DE PADRÕES (OFICIAL)
 # =====================
 def analyze(history):
     if len(history) < 4:
@@ -34,12 +40,12 @@ def analyze(history):
     recent = history[:6]
     last = recent[0]
 
-    # 1️⃣ EXTENSÃO (4 ou mais iguais)
+    # 1️⃣ EXTENSÃO
     if last != "🟡" and recent.count(last) >= 4:
         lado = "BANQUEIRO 🔴" if last == "🔴" else "JOGADOR 🔵"
         return "Extensão", f"Sequência longa de {lado}", "RISCO ALTO"
 
-    # 2️⃣ REPETIÇÃO CURTA (2 iguais)
+    # 2️⃣ REPETIÇÃO CURTA
     if recent[0] == recent[1] and recent[0] != "🟡":
         lado = "BANQUEIRO 🔴" if recent[0] == "🔴" else "JOGADOR 🔵"
         return "Repetição curta", "Continuação provável", f"ENTRAR {lado} (stake baixa)"
@@ -54,7 +60,7 @@ def analyze(history):
     if alterna:
         if last == "🔴":
             return "Alternância", "Mesa equilibrada", "ENTRAR JOGADOR 🔵"
-        elif last == "🔵":
+        if last == "🔵":
             return "Alternância", "Mesa equilibrada", "ENTRAR BANQUEIRO 🔴"
 
     # 4️⃣ EMPATE COMO ÂNCORA
@@ -64,7 +70,11 @@ def analyze(history):
         return "Empate âncora", "Tendência de repetição do lado anterior", f"ENTRAR {lado}"
 
     # 5️⃣ QUEBRA DE EXTENSÃO
-    if history[0] != history[1] and history[1] == history[2] == history[3]:
+    if (
+        len(history) >= 4
+        and history[0] != history[1]
+        and history[1] == history[2] == history[3]
+    ):
         lado = "BANQUEIRO 🔴" if history[0] == "🔴" else "JOGADOR 🔵"
         return "Quebra de extensão", "Correção detectada", f"ENTRAR {lado}"
 
@@ -82,7 +92,7 @@ def analyze(history):
 # =====================
 # INTERFACE
 # =====================
-st.title("⚽ Football Studio – Análise de Padrões Reais (Cartas Físicas)")
+st.title("⚽ Football Studio – Análise de Padrões Reais")
 st.caption("🔵 Jogador | 🔴 Banqueiro | 🟡 Empate")
 
 col1, col2, col3, col4 = st.columns(4)
@@ -106,13 +116,14 @@ with col4:
 st.divider()
 
 # =====================
-# HISTÓRICO
+# HISTÓRICO (ESTÁVEL)
 # =====================
 st.subheader("📊 Histórico (mais recente à esquerda)")
-chunks = chunk_history(st.session_state.history)
 
-for row in chunks:
-    st.write(" ".join(row))
+with st.container():
+    chunks = chunk_history(st.session_state.history)
+    for row in chunks:
+        st.markdown(" ".join(row))
 
 # =====================
 # ANÁLISE
