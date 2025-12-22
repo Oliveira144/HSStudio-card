@@ -1,6 +1,9 @@
 import streamlit as st
 
-st.set_page_config(page_title="Football Studio - Padrões Reais", layout="wide")
+st.set_page_config(
+    page_title="Football Studio - Padrões Reais",
+    layout="wide"
+)
 
 # =====================
 # ESTADO
@@ -12,6 +15,7 @@ if "history" not in st.session_state:
 # FUNÇÕES BÁSICAS
 # =====================
 def add_result(result):
+    # mais recente sempre à esquerda
     st.session_state.history.insert(0, result)
 
 def reset():
@@ -30,58 +34,66 @@ def analyze(history):
     recent = history[:6]
     last = recent[0]
 
-    # 1️⃣ Extensão
+    # 1️⃣ EXTENSÃO (4 ou mais iguais)
     if last != "🟡" and recent.count(last) >= 4:
-        return "Extensão", "Sequência longa perigosa", "RISCO ALTO"
+        lado = "BANQUEIRO 🔴" if last == "🔴" else "JOGADOR 🔵"
+        return "Extensão", f"Sequência longa de {lado}", "RISCO ALTO"
 
-    # 2️⃣ Repetição curta
+    # 2️⃣ REPETIÇÃO CURTA (2 iguais)
     if recent[0] == recent[1] and recent[0] != "🟡":
-        return "Repetição curta", "Continuação provável", f"ENTRAR {recent[0]} (stake baixa)"
+        lado = "BANQUEIRO 🔴" if recent[0] == "🔴" else "JOGADOR 🔵"
+        return "Repetição curta", "Continuação provável", f"ENTRAR {lado} (stake baixa)"
 
-    # 3️⃣ Alternância
+    # 3️⃣ ALTERNÂNCIA
     alterna = True
     for i in range(len(recent) - 1):
         if recent[i] == recent[i + 1]:
             alterna = False
             break
+
     if alterna:
-        lado = "🔴" if last == "🔵" else "🔵"
-        return "Alternância", "Mesa equilibrada", f"ENTRAR {lado}"
+        if last == "🔴":
+            return "Alternância", "Mesa equilibrada", "ENTRAR JOGADOR 🔵"
+        elif last == "🔵":
+            return "Alternância", "Mesa equilibrada", "ENTRAR BANQUEIRO 🔴"
 
-    # 4️⃣ Empate como âncora
-    if last == "🟡":
+    # 4️⃣ EMPATE COMO ÂNCORA
+    if last == "🟡" and len(history) > 1:
         prev = history[1]
-        return "Empate âncora", "Tendência de repetição", f"ENTRAR {prev}"
+        lado = "BANQUEIRO 🔴" if prev == "🔴" else "JOGADOR 🔵"
+        return "Empate âncora", "Tendência de repetição do lado anterior", f"ENTRAR {lado}"
 
-    # 5️⃣ Quebra de extensão
+    # 5️⃣ QUEBRA DE EXTENSÃO
     if history[0] != history[1] and history[1] == history[2] == history[3]:
-        return "Quebra de extensão", "Correção detectada", f"ENTRAR {history[0]}"
+        lado = "BANQUEIRO 🔴" if history[0] == "🔴" else "JOGADOR 🔵"
+        return "Quebra de extensão", "Correção detectada", f"ENTRAR {lado}"
 
-    # 6️⃣ Compressão
+    # 6️⃣ COMPRESSÃO
     if "🟡" in recent and recent.count("🔴") == recent.count("🔵"):
-        return "Compressão", "Mesa travada", "AGUARDAR"
+        return "Compressão", "Mesa travada / sem dominância", "AGUARDAR"
 
-    # 7️⃣ Falso padrão
+    # 7️⃣ FALSO PADRÃO
     if recent[:5].count("🔴") == 3 and recent[:5].count("🔵") == 2:
-        return "Falso padrão", "Quebra iminente", "AGUARDAR"
+        return "Falso padrão", "Possível armadilha", "AGUARDAR"
 
-    # 8️⃣ Zona neutra
+    # 8️⃣ ZONA NEUTRA
     return "Zona neutra", "Sem padrão confiável", "AGUARDAR"
 
 # =====================
 # INTERFACE
 # =====================
 st.title("⚽ Football Studio – Análise de Padrões Reais (Cartas Físicas)")
+st.caption("🔵 Jogador | 🔴 Banqueiro | 🟡 Empate")
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    if st.button("🔴 Player"):
-        add_result("🔴")
+    if st.button("🔵 Jogador"):
+        add_result("🔵")
 
 with col2:
-    if st.button("🔵 Banker"):
-        add_result("🔵")
+    if st.button("🔴 Banqueiro"):
+        add_result("🔴")
 
 with col3:
     if st.button("🟡 Empate"):
@@ -114,4 +126,4 @@ st.write(f"**Padrão identificado:** {padrao}")
 st.write(f"**Estado da mesa:** {estado}")
 st.write(f"**Sugestão:** {sugestao}")
 
-st.caption("⚠️ App de leitura estatística. Não garante ganhos. Use gestão.")
+st.caption("⚠️ Leitura estatística. Não existe garantia de ganho. Use gestão.")
