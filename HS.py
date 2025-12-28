@@ -1,14 +1,17 @@
 import streamlit as st
 from collections import Counter
 
-st.set_page_config(page_title="Football Studio IA Avançada", layout="centered")
-st.title("🧠 Football Studio – IA Nível Avançado")
+# =====================================================
+# CONFIGURAÇÃO
+# =====================================================
+st.set_page_config(page_title="Football Studio IA Profissional", layout="centered")
+st.title("🧠 Football Studio – Leitura Profissional Evoluída")
 
 # =====================================================
 # ESTADO
 # =====================================================
 if "h" not in st.session_state:
-    st.session_state.h = []  # índice 0 = MAIS RECENTE
+    st.session_state.h = []
 
 # =====================================================
 # INSERÇÃO MANUAL
@@ -29,7 +32,7 @@ with c3:
 st.session_state.h = st.session_state.h[:120]
 
 # =====================================================
-# HISTÓRICO VISUAL (MESA REAL)
+# HISTÓRICO
 # =====================================================
 st.subheader("Histórico (Mais recente → Mais antigo)")
 
@@ -41,110 +44,127 @@ def render(h):
 render(st.session_state.h)
 
 # =====================================================
-# MOTOR 1 — LEITURA DE PADRÕES
+# MICRO-TENDÊNCIA (NOVO)
+# =====================================================
+def micro_tendencia(h):
+    ult = h[:10]
+    c = Counter([x for x in ult if x != "E"])
+    if not c:
+        return None
+    return c.most_common(1)[0][0]
+
+# =====================================================
+# PADRÕES PRINCIPAIS
 # =====================================================
 def detectar_padroes(h):
-    p = []
     u = h[:8]
+    p = []
 
-    if len(u) < 6:
+    if len(u) < 4:
         return p
 
-    # Alternância
     if u[:4] in (["R","B","R","B"], ["B","R","B","R"]):
-        p.append(("Alternância longa", "neutro", 20))
+        p.append(("Alternância longa", "neutro", 15))
 
     if u[0] != u[1] and u[1] != u[2]:
-        p.append(("Alternância curta", "seguir", 15))
+        p.append(("Alternância curta", "seguir", 12))
 
-    # Repetição
     if u[0] == u[1]:
         p.append(("Repetição dupla", "seguir", 10))
 
     if u[:3].count(u[0]) == 3:
-        p.append(("Repetição tripla", "neutro", 18))
+        p.append(("Repetição tripla", "neutro", 15))
 
-    # Saturação
     if u[:5].count("R") >= 4:
-        p.append(("Saturação Vermelho", "contrariar", 30))
+        p.append(("Saturação Vermelho", "contrariar", 20))
 
     if u[:5].count("B") >= 4:
-        p.append(("Saturação Azul", "contrariar", 30))
+        p.append(("Saturação Azul", "contrariar", 20))
 
-    # Empate
     if u[0] == "E":
-        p.append(("Empate âncora", "contrariar", 25))
+        p.append(("Empate âncora", "contrariar", 18))
 
-    if u[0] == "E" and u[1] == "E":
-        p.append(("Empate duplo (limpeza)", "bloqueio", 50))
-
-    # Manipulação
     if u.count("R") == u.count("B") and "E" not in u:
-        p.append(("Simetria forçada", "armadilha", 40))
+        p.append(("Simetria forçada", "alerta", 25))
 
     return p
 
 # =====================================================
-# MOTOR 2 — FORÇA DO PADRÃO
+# QUEBRA IMINENTE (NOVO)
 # =====================================================
-def calcular_forca(padroes):
-    forca = sum(p[2] for p in padroes)
-    return min(forca, 100)
+def quebra_iminente(h):
+    ult = h[:6]
+    if ult.count("R") >= 5:
+        return "Vermelho saturado"
+    if ult.count("B") >= 5:
+        return "Azul saturado"
+    if ult[:4] in (["R","B","R","B"], ["B","R","B","R"]):
+        return "Alternância esticada"
+    return None
 
 # =====================================================
-# MOTOR 3 — DETECTOR DE ARMADILHA
-# =====================================================
-def armadilha_ativa(padroes):
-    for p in padroes:
-        if "armadilha" in p[1] or "bloqueio" in p[1]:
-            return True
-    return False
-
-# =====================================================
-# MOTOR 4 — DECISÃO FINAL
+# DECISÃO FINAL
 # =====================================================
 def decidir(h, padroes):
-    score = {"R":0, "B":0}
+    score = {"R": 0, "B": 0}
+    alertas = []
 
     for nome, tipo, peso in padroes:
         if tipo == "seguir":
             score[h[0]] += peso
-
         if tipo == "contrariar":
-            score["B" if h[0]=="R" else "R"] += peso
+            score["B" if h[0] == "R" else "R"] += peso
+        if tipo == "alerta":
+            alertas.append(nome)
 
-    forca = calcular_forca(padroes)
-    trap = armadilha_ativa(padroes)
+    # Micro-tendência entra só se score estiver baixo
+    if abs(score["R"] - score["B"]) < 10:
+        mt = micro_tendencia(h)
+        if mt:
+            score[mt] += 8
 
-    return score, forca, trap
+    confianca = min(sum(p[2] for p in padroes) + 20, 100)
+
+    lado = "R" if score["R"] >= score["B"] else "B"
+    return lado, score, confianca, alertas
 
 # =====================================================
-# PAINEL AVANÇADO
+# PAINEL IA
 # =====================================================
-if len(st.session_state.h) >= 6:
+if len(st.session_state.h) >= 4:
     st.divider()
-    st.subheader("🧠 Painel Avançado de Leitura")
+    st.subheader("🧠 Leitura Profissional")
 
     padroes = detectar_padroes(st.session_state.h)
-    score, forca, trap = decidir(st.session_state.h, padroes)
+    lado, score, confianca, alertas = decidir(st.session_state.h, padroes)
+    quebra = quebra_iminente(st.session_state.h)
 
     st.write("### Padrões Detectados")
-    for nome, tipo, peso in padroes:
-        st.write(f"• **{nome}** | ação: `{tipo}` | peso: {peso}")
-
-    st.write("### Métricas")
-    st.write(f"🔥 Força do Padrão: **{forca}/100**")
-    st.write(f"⚠️ Armadilha ativa: **{trap}**")
+    if padroes:
+        for n, t, p in padroes:
+            st.write(f"• **{n}** | {t} | peso {p}")
+    else:
+        st.write("• Leitura por micro-tendência")
 
     st.write("### Pontuação")
     st.write(f"🔴 Vermelho: {score['R']}")
     st.write(f"🔵 Azul: {score['B']}")
 
-    if trap or forca < 65:
-        st.error("⛔ ENTRADA BLOQUEADA (Manipulação ou força insuficiente)")
+    st.success(f"▶️ Sugestão: {'🔴 Vermelho' if lado=='R' else '🔵 Azul'}")
+    st.write(f"**Confiança:** {confianca}%")
+
+    if confianca < 45:
+        st.warning("⚠️ Risco alto (mesa instável)")
+    elif confianca < 70:
+        st.info("ℹ️ Risco médio")
     else:
-        lado = "🔴 Vermelho" if score["R"] > score["B"] else "🔵 Azul"
-        st.success(f"▶️ ENTRAR EM {lado} | Confiança: {forca}%")
+        st.success("🔥 Risco baixo")
+
+    if alertas:
+        st.error(f"🚨 Alerta: {', '.join(alertas)}")
+
+    if quebra:
+        st.warning(f"💣 Quebra iminente detectada: {quebra}")
 
 # =====================================================
 # RESET
