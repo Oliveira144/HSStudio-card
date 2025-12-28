@@ -5,13 +5,13 @@ from collections import Counter
 # CONFIGURAÇÃO
 # =====================================================
 st.set_page_config(page_title="Football Studio IA Profissional", layout="centered")
-st.title("🧠 Football Studio – Leitura Profissional Evoluída")
+st.title("🧠 Football Studio – Leitura Profissional Completa")
 
 # =====================================================
 # ESTADO
 # =====================================================
 if "h" not in st.session_state:
-    st.session_state.h = []
+    st.session_state.h = []  # índice 0 = MAIS RECENTE
 
 # =====================================================
 # INSERÇÃO MANUAL
@@ -32,33 +32,44 @@ with c3:
 st.session_state.h = st.session_state.h[:120]
 
 # =====================================================
-# HISTÓRICO
+# HISTÓRICO VISUAL (MESA REAL)
 # =====================================================
 st.subheader("Histórico (Mais recente → Mais antigo)")
 
 def render(h):
-    mapa = {"R":"🔴","B":"🔵","E":"🟡"}
+    mapa = {"R": "🔴", "B": "🔵", "E": "🟡"}
     for i in range(0, len(h), 9):
         st.write(" ".join(mapa[x] for x in h[i:i+9]))
 
 render(st.session_state.h)
 
 # =====================================================
-# MICRO-TENDÊNCIA (NOVO)
+# LEITURA DE EMPATE (ESSENCIAL)
 # =====================================================
-def micro_tendencia(h):
-    ult = h[:10]
-    c = Counter([x for x in ult if x != "E"])
-    if not c:
+def leitura_empate(h):
+    if h[0] != "E":
         return None
-    return c.most_common(1)[0][0]
+
+    if len(h) > 1 and h[1] == "E":
+        return ("Empate duplo (limpeza)", "pausa", 30)
+
+    if len(h) > 2 and h[1] == h[2] and h[1] != "E":
+        return ("Empate de corte", "contrariar", 25)
+
+    if h[:6].count("R") >= 4:
+        return ("Empate pós-saturação Vermelho", "contrariar", 28)
+
+    if h[:6].count("B") >= 4:
+        return ("Empate pós-saturação Azul", "contrariar", 28)
+
+    return ("Empate âncora", "contrariar", 18)
 
 # =====================================================
-# PADRÕES PRINCIPAIS
+# PADRÕES DE COR
 # =====================================================
 def detectar_padroes(h):
-    u = h[:8]
     p = []
+    u = h[:8]
 
     if len(u) < 4:
         return p
@@ -69,45 +80,30 @@ def detectar_padroes(h):
     if u[0] != u[1] and u[1] != u[2]:
         p.append(("Alternância curta", "seguir", 12))
 
-    if u[0] == u[1]:
+    if u[0] == u[1] and u[0] != "E":
         p.append(("Repetição dupla", "seguir", 10))
 
-    if u[:3].count(u[0]) == 3:
+    if u[:3].count(u[0]) == 3 and u[0] != "E":
         p.append(("Repetição tripla", "neutro", 15))
 
     if u[:5].count("R") >= 4:
-        p.append(("Saturação Vermelho", "contrariar", 20))
+        p.append(("Saturação Vermelho", "contrariar", 22))
 
     if u[:5].count("B") >= 4:
-        p.append(("Saturação Azul", "contrariar", 20))
-
-    if u[0] == "E":
-        p.append(("Empate âncora", "contrariar", 18))
+        p.append(("Saturação Azul", "contrariar", 22))
 
     if u.count("R") == u.count("B") and "E" not in u:
-        p.append(("Simetria forçada", "alerta", 25))
+        p.append(("Simetria forçada", "alerta", 20))
 
     return p
 
 # =====================================================
-# QUEBRA IMINENTE (NOVO)
+# DECISÃO FINAL (EMPATE MANDA NA MESA)
 # =====================================================
-def quebra_iminente(h):
-    ult = h[:6]
-    if ult.count("R") >= 5:
-        return "Vermelho saturado"
-    if ult.count("B") >= 5:
-        return "Azul saturado"
-    if ult[:4] in (["R","B","R","B"], ["B","R","B","R"]):
-        return "Alternância esticada"
-    return None
-
-# =====================================================
-# DECISÃO FINAL
-# =====================================================
-def decidir(h, padroes):
+def decidir(h):
     score = {"R": 0, "B": 0}
     alertas = []
+    padroes = detectar_padroes(h)
 
     for nome, tipo, peso in padroes:
         if tipo == "seguir":
@@ -117,34 +113,35 @@ def decidir(h, padroes):
         if tipo == "alerta":
             alertas.append(nome)
 
-    # Micro-tendência entra só se score estiver baixo
-    if abs(score["R"] - score["B"]) < 10:
-        mt = micro_tendencia(h)
-        if mt:
-            score[mt] += 8
+    # Empate redefine leitura
+    if h[0] == "E":
+        nome, tipo, peso = leitura_empate(h)
+        alertas.append(nome)
 
-    confianca = min(sum(p[2] for p in padroes) + 20, 100)
+        if tipo == "contrariar" and len(h) > 1:
+            base = h[1]
+            if base in ("R","B"):
+                score["B" if base == "R" else "R"] += peso
+
+    # Micro-tendência como fallback
+    if abs(score["R"] - score["B"]) < 8:
+        ult = [x for x in h[:10] if x != "E"]
+        if ult:
+            score[Counter(ult).most_common(1)[0][0]] += 6
 
     lado = "R" if score["R"] >= score["B"] else "B"
+    confianca = min(abs(score["R"] - score["B"]) + 40, 100)
+
     return lado, score, confianca, alertas
 
 # =====================================================
-# PAINEL IA
+# PAINEL DE LEITURA
 # =====================================================
 if len(st.session_state.h) >= 4:
     st.divider()
-    st.subheader("🧠 Leitura Profissional")
+    st.subheader("🧠 Leitura Profissional da Mesa")
 
-    padroes = detectar_padroes(st.session_state.h)
-    lado, score, confianca, alertas = decidir(st.session_state.h, padroes)
-    quebra = quebra_iminente(st.session_state.h)
-
-    st.write("### Padrões Detectados")
-    if padroes:
-        for n, t, p in padroes:
-            st.write(f"• **{n}** | {t} | peso {p}")
-    else:
-        st.write("• Leitura por micro-tendência")
+    lado, score, confianca, alertas = decidir(st.session_state.h)
 
     st.write("### Pontuação")
     st.write(f"🔴 Vermelho: {score['R']}")
@@ -153,18 +150,17 @@ if len(st.session_state.h) >= 4:
     st.success(f"▶️ Sugestão: {'🔴 Vermelho' if lado=='R' else '🔵 Azul'}")
     st.write(f"**Confiança:** {confianca}%")
 
-    if confianca < 45:
-        st.warning("⚠️ Risco alto (mesa instável)")
+    if confianca < 50:
+        st.warning("⚠️ Risco alto — mesa instável / empate recente")
     elif confianca < 70:
         st.info("ℹ️ Risco médio")
     else:
         st.success("🔥 Risco baixo")
 
     if alertas:
-        st.error(f"🚨 Alerta: {', '.join(alertas)}")
-
-    if quebra:
-        st.warning(f"💣 Quebra iminente detectada: {quebra}")
+        st.error("🚨 Alertas de mesa:")
+        for a in alertas:
+            st.write(f"• {a}")
 
 # =====================================================
 # RESET
