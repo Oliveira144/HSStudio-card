@@ -1,140 +1,167 @@
 import streamlit as st
+from collections import Counter
 
-# =====================
-# CONFIGURAÇÃO
-# =====================
-st.set_page_config(
-    page_title="Football Studio - Padrões Reais",
-    layout="wide"
-)
+st.set_page_config(page_title="Football Studio IA Pro", layout="centered")
+st.title("🧠 Football Studio – IA Profissional de Manipulação")
 
-# Evita quebra visual por erro de front
-st.set_option("client.showErrorDetails", False)
-
-# =====================
+# =========================
 # ESTADO
-# =====================
-if "history" not in st.session_state:
-    st.session_state.history = []
+# =========================
+if "h" not in st.session_state:
+    st.session_state.h = []
 
-# =====================
-# FUNÇÕES BÁSICAS
-# =====================
-def add_result(result):
-    # Mais recente sempre à esquerda
-    st.session_state.history.insert(0, result)
+# =========================
+# FUNÇÕES BASE
+# =========================
+def limite_hist(h, lim=90):
+    return h[-lim:]
 
-def reset():
-    st.session_state.history = []
+def nivel_manipulacao(h):
+    score = 1
+    if len(h) < 6:
+        return score
 
-def chunk_history(hist, size=9):
-    return [hist[i:i + size] for i in range(0, len(hist), size)]
+    ult = h[-10:]
+    rep_r = ult.count("R")
+    rep_b = ult.count("B")
+    emp = ult.count("E")
 
-# =====================
-# MOTOR DE PADRÕES (OFICIAL)
-# =====================
-def analyze(history):
-    if len(history) < 4:
-        return "Dados insuficientes", "Aguardando formação", "AGUARDAR"
+    if max(rep_r, rep_b) >= 3: score += 1
+    if max(rep_r, rep_b) >= 5: score += 2
+    if emp >= 1: score += 1
+    if emp >= 2: score += 2
+    if rep_r == rep_b: score += 1
+    if len(set(ult[-4:])) == 4: score += 1  # confusão proposital
 
-    recent = history[:6]
-    last = recent[0]
+    return min(score, 9)
 
-    # 1️⃣ EXTENSÃO
-    if last != "🟡" and recent.count(last) >= 4:
-        lado = "BANQUEIRO 🔴" if last == "🔴" else "JOGADOR 🔵"
-        return "Extensão", f"Sequência longa de {lado}", "RISCO ALTO"
+def detectar_macro_padrao(h):
+    if len(h) < 6:
+        return "Histórico insuficiente"
 
-    # 2️⃣ REPETIÇÃO CURTA
-    if recent[0] == recent[1] and recent[0] != "🟡":
-        lado = "BANQUEIRO 🔴" if recent[0] == "🔴" else "JOGADOR 🔵"
-        return "Repetição curta", "Continuação provável", f"ENTRAR {lado} (stake baixa)"
+    ult = h[-6:]
 
-    # 3️⃣ ALTERNÂNCIA
-    alterna = True
-    for i in range(len(recent) - 1):
-        if recent[i] == recent[i + 1]:
-            alterna = False
-            break
+    if ult[-2:] == ["E","E"]:
+        return "Empate Duplo (Limpeza)"
+    if ult[-1] == "E" and ult[-2] == ult[-3]:
+        return "Empate de Corte"
+    if ult[-4:] in (["R","B","R","B"],["B","R","B","R"]):
+        return "Alternância Perfeita (Falsa)"
+    if ult[-3] == ult[-2] == ult[-1]:
+        return "Tripla Repetição"
+    if ult.count("R") >= 5:
+        return "Sequência Forte Vermelho"
+    if ult.count("B") >= 5:
+        return "Sequência Forte Azul"
 
-    if alterna:
-        if last == "🔴":
-            return "Alternância", "Mesa equilibrada", "ENTRAR JOGADOR 🔵"
-        if last == "🔵":
-            return "Alternância", "Mesa equilibrada", "ENTRAR BANQUEIRO 🔴"
+    return "Padrão Camuflado"
 
-    # 4️⃣ EMPATE COMO ÂNCORA
-    if last == "🟡" and len(history) > 1:
-        prev = history[1]
-        lado = "BANQUEIRO 🔴" if prev == "🔴" else "JOGADOR 🔵"
-        return "Empate âncora", "Tendência de repetição do lado anterior", f"ENTRAR {lado}"
+def falso_padrao(h):
+    if len(h) < 5:
+        return False
+    ult = h[-5:]
+    return ult.count("R") == ult.count("B") and "E" not in ult
 
-    # 5️⃣ QUEBRA DE EXTENSÃO
-    if (
-        len(history) >= 4
-        and history[0] != history[1]
-        and history[1] == history[2] == history[3]
-    ):
-        lado = "BANQUEIRO 🔴" if history[0] == "🔴" else "JOGADOR 🔵"
-        return "Quebra de extensão", "Correção detectada", f"ENTRAR {lado}"
+def leitura_quântica(h):
+    """
+    Convergência de 3 fatores:
+    1. Excesso
+    2. Empate
+    3. Pressão
+    """
+    pontos = {"R":0,"B":0}
 
-    # 6️⃣ COMPRESSÃO
-    if "🟡" in recent and recent.count("🔴") == recent.count("🔵"):
-        return "Compressão", "Mesa travada / sem dominância", "AGUARDAR"
+    ult = h[-10:]
+    cont = Counter(ult)
 
-    # 7️⃣ FALSO PADRÃO
-    if recent[:5].count("🔴") == 3 and recent[:5].count("🔵") == 2:
-        return "Falso padrão", "Possível armadilha", "AGUARDAR"
+    # Excesso
+    if cont["R"] >= 5: pontos["B"] += 1
+    if cont["B"] >= 5: pontos["R"] += 1
 
-    # 8️⃣ ZONA NEUTRA
-    return "Zona neutra", "Sem padrão confiável", "AGUARDAR"
+    # Empate como corte
+    if ult[-1] == "E":
+        if ult[-2] == "R": pontos["B"] += 1
+        if ult[-2] == "B": pontos["R"] += 1
 
-# =====================
-# INTERFACE
-# =====================
-st.title("⚽ Football Studio – Análise de Padrões Reais")
-st.caption("🔵 Jogador | 🔴 Banqueiro | 🟡 Empate")
+    # Pressão psicológica
+    if cont["R"] > cont["B"]: pontos["B"] += 1
+    if cont["B"] > cont["R"]: pontos["R"] += 1
 
-col1, col2, col3, col4 = st.columns(4)
+    return pontos
 
-with col1:
-    if st.button("🔵 Jogador"):
-        add_result("🔵")
+def decisao_final(h):
+    macro = detectar_macro_padrao(h)
+    nivel = nivel_manipulacao(h)
+    quântico = leitura_quântica(h)
+    falso = falso_padrao(h)
 
-with col2:
-    if st.button("🔴 Banqueiro"):
-        add_result("🔴")
+    if macro == "Empate Duplo (Limpeza)":
+        return "⛔ PAUSAR", "Limpeza total detectada", 92
 
-with col3:
+    if nivel >= 8:
+        return "⏳ AGUARDAR", "Manipulação extrema", 88
+
+    if falso:
+        return "🔄 CONTRARIAR", "Falso padrão identificado", 82
+
+    if quântico["R"] >= 2:
+        return "▶️ ENTRAR 🔴", "Convergência quântica", 79
+
+    if quântico["B"] >= 2:
+        return "▶️ ENTRAR 🔵", "Convergência quântica", 79
+
+    return "⏳ AGUARDAR", "Sem convergência clara", 65
+
+# =========================
+# INSERÇÃO MANUAL
+# =========================
+st.subheader("Inserir Resultado (Mesa Real)")
+
+c1,c2,c3 = st.columns(3)
+
+with c1:
+    if st.button("🔴 Vermelho"):
+        st.session_state.h.append("R")
+with c2:
+    if st.button("🔵 Azul"):
+        st.session_state.h.append("B")
+with c3:
     if st.button("🟡 Empate"):
-        add_result("🟡")
+        st.session_state.h.append("E")
 
-with col4:
-    if st.button("♻️ Reset"):
-        reset()
+st.session_state.h = limite_hist(st.session_state.h)
 
-st.divider()
+# =========================
+# HISTÓRICO VISUAL
+# =========================
+st.subheader("Histórico")
+def render(h):
+    mapa = {"R":"🔴","B":"🔵","E":"🟡"}
+    linhas = [h[i:i+9] for i in range(0,len(h),9)]
+    for l in linhas:
+        st.write(" ".join(mapa[x] for x in l))
 
-# =====================
-# HISTÓRICO (ESTÁVEL)
-# =====================
-st.subheader("📊 Histórico (mais recente à esquerda)")
+render(st.session_state.h)
 
-with st.container():
-    chunks = chunk_history(st.session_state.history)
-    for row in chunks:
-        st.markdown(" ".join(row))
+# =========================
+# PAINEL IA
+# =========================
+if len(st.session_state.h) >= 6:
+    st.divider()
+    st.subheader("🧠 Análise Profissional")
 
-# =====================
-# ANÁLISE
-# =====================
-padrao, estado, sugestao = analyze(st.session_state.history)
+    macro = detectar_macro_padrao(st.session_state.h)
+    nivel = nivel_manipulacao(st.session_state.h)
+    acao, motivo, conf = decisao_final(st.session_state.h)
 
-st.divider()
-st.subheader("🧠 Leitura da Mesa")
+    st.write(f"**Macro Padrão:** {macro}")
+    st.write(f"**Manipulação:** {nivel}/9")
+    st.write(f"**Decisão IA:** {acao}")
+    st.write(f"**Motivo:** {motivo}")
+    st.write(f"**Confiança:** {conf}%")
 
-st.write(f"**Padrão identificado:** {padrao}")
-st.write(f"**Estado da mesa:** {estado}")
-st.write(f"**Sugestão:** {sugestao}")
-
-st.caption("⚠️ Leitura estatística. Não existe garantia de ganho. Use gestão.")
+# =========================
+# RESET
+# =========================
+if st.button("♻️ Resetar Mesa"):
+    st.session_state.h = []
